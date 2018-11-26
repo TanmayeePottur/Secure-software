@@ -1,0 +1,78 @@
+Topic: Stack related Defects: Overflow and Memory leaks
+
+The code I have studied for identifying vulnerabilities was written by Toyota ITC which was downloaded from the NIST Dataset SARD. 
+The type of detects that were found in the program are Stack related defects which are stack overflows. 
+The error was caused by large internal variables.
+The defected source code snippets and the simultaneous fixes are as follows:
+(PS- As the code is too big, I am only writing the defected lines of the code and I have referenced it in the reference link number [5].)
+Defect: [1]
+#include "HeaderFile.h"
+void st_overflow_001 ()
+{
+    double buf[1048576];
+    buf[0] = 1.0;
+        sink = buf[idx];
+}
+
+typedef struct {
+#if 1   /* Prevent failure? Correspondence */
+    char buf[524288]; 
+
+s.buf[0] = 1;   Tool should detect this as error because of the stack overflow caused in the above statement
+void st_overflow_002_func_001 (st_overflow_002_s_001 s)
+{
+    s.buf[0] = 1;
+}
+void st_overflow_002 ()
+{
+    st_overflow_002_s_001 s;        /* 1 Kbytes */
+    st_overflow_002_func_001(s);    /* 1 Kbytes */
+}
+typedef struct {
+#if 0   /* Prevent failure? Correspondence */
+    char buf[524288];    /* 512 Kbytes */
+    char buf1[131072];  /* 128 Kbytes */
+    char buf2[131072]; /* 128 Kbytes */
+[1]
+The highlighted part is the vulnerability.
+Why and what kind of a vulnerability is this?
+The source code test was created by assuming that the maximum stack size is of 15kbytes which is equal to 15360 bytes.
+As the variable ‘buf’ was created with the value 1048576 which is around 1 megabyte or more, it will cause a stack overflow which in turns leads to a memory leak.
+Certain languages allow direct addressing of memory locations and do not automatically ensure that these locations are valid for the memory buffer that is being referenced. This can cause read or write operations to be performed on memory locations that may be associated with other variables, data structures, or internal program data.[4] 
+As a result, an attacker may be able to execute arbitrary code, alter the intended control flow, read sensitive information, or cause the system to crash.[4]
+The software does not sufficiently track and release allocated memory after it has been used, which slowly consumes remaining memory. This is often triggered by improper handling of malformed data or unexpectedly interrupted sessions.[2] This also causes Confusion over which part of the program is responsible for freeing the memory henceforth leading to a memory leak.
+
+How can it be fixed?
+One probable fix is that: Choose a language or tool that either provides automatic memory management or makes manual memory management less error-prone.[2]
+The fixes in the program itself are as follows:
+void st_overflow_001 ()
+{
+double buf[1024];
+
+void st_overflow_002_func_001 (st_overflow_002_s_001 s)
+{
+   s.buf[0] = 1;
+} 
+void st_overflow_002 ()
+{
+  st_overflow_002_s_001 s;        /* 1 Kbytes */
+  st_overflow_002_func_001(s);    /* 1 Kbytes */
+}
+typedef struct {
+  #if 0   /* Prevent failure? Correspondence */
+   char buf[524288];    /* 512 Kbytes */
+    char buf1[131072];  /* 128 Kbytes */
+    char buf2[131072]; /* 128 Kbytes */  [6]
+The above fix removes the possibility of large internal variables and function arguments by defining ‘buf’ with the size of 1024 bytes and mentioning the same size in all the ‘double buf’ initializations. By assigning later to the other calling functions, the change made in the next highlighted part aids as a measure in filtrating out the allocated memory after it has been used. There wouldn’t be any stack overflow. 
+
+ 
+References:
+[1] https://samate.nist.gov/SARD/view_testcase.php?tID=199311
+[2] https://cwe.mitre.org/data/definitions/401.html
+[3] https://ieeexplore.ieee.org/document/1556543
+[4] https://cwe.mitre.org/data/definitions/119.html
+[5] https://samate.nist.gov/SARD/testcases/000/199/311/st_overflow.c
+[6] https://samate.nist.gov/SARD/view_testcase.php?tID=199312
+
+
+
